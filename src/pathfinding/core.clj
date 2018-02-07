@@ -18,11 +18,11 @@
         :came-from {start :start}}
        (iterate
          (fn [{:keys [frontier came-from]}]
-           (when-let [current    (first frontier)]
+           (let [current (first frontier)]
              (when (not= current goal)
                (let [neighbours (remove #(contains? came-from %)
                                         (get-in graph [current :neighbours]))]
-                 {:frontier  (concat (next frontier) neighbours)
+                 {:frontier  (into (vec (next frontier)) neighbours)
                   :came-from (into came-from (map #(vector % current) neighbours))})))))
       (take-while identity)
       last
@@ -43,16 +43,15 @@
         :came-from {start :start}}
        (iterate
          (fn [{:keys [frontier came-from cost-so-far]}]
-           (when-let [current (first (peek frontier))]
+           (let [current (first (peek frontier))]
              (when (not= current goal)
                (let [neighbours       (get-in graph [current :neighbours])
-                     neighbour-costs  (->> neighbours
-                                           (map (fn [neighbour]
-                                                  (let [new-cost (+ (get cost-so-far current)
-                                                                    (get-in graph [current :costs neighbour]))]
-                                                    (when (or (not (contains? cost-so-far neighbour))
-                                                              (< new-cost (get cost-so-far neighbour)))
-                                                      [neighbour new-cost]))))
+                     neighbour-costs  (->> (for [neighbour neighbours]
+                                             (let [new-cost (+ (get cost-so-far current)
+                                                               (get-in graph [current :costs neighbour]))]
+                                               (when (or (not (contains? cost-so-far neighbour))
+                                                         (< new-cost (get cost-so-far neighbour)))
+                                                 [neighbour new-cost])))
                                            (filter identity))]
                  {:frontier  (into (pop frontier) neighbour-costs)
                   :came-from (into came-from (map #(vector (first %) current) neighbour-costs))
@@ -84,7 +83,7 @@
        :came-from {start :start}}
       (iterate
         (fn [{:keys [frontier came-from cost-so-far]}]
-          (when-let [current (first (peek frontier))]
+          (let [current (first (peek frontier))]
             (when (not= current goal)
               (let [neighbours       (get-in graph [current :neighbours])
                     neighbour-costs  (->> neighbours
@@ -96,9 +95,8 @@
                                                      [neighbour new-cost]))))
                                           (filter identity))]
                 {:frontier  (into (pop frontier)
-                                  (map
-                                    (fn [[node cost]] [node (+ cost (heuristic goal node))])
-                                    neighbour-costs))
+                                  (for [[node cost] neighbour-costs]
+                                    [node (+ cost (heuristic goal node))]))
                  :came-from (into came-from (map #(vector (first %) current) neighbour-costs))
                  :cost-so-far (into cost-so-far neighbour-costs)})))))
      (take-while identity)
